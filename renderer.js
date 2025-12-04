@@ -1,32 +1,69 @@
+
+
 const { ipcRenderer } = require('electron');
-// QUAN TRỌNG: Require bootstrap trực tiếp để đảm bảo Modal hoạt động offline/electron
-const bootstrap = require('bootstrap');
+// Ensure Bootstrap JS and Popper are loaded correctly
+const bootstrap = require('bootstrap/dist/js/bootstrap.bundle.min.js');
 
 let currentMode = 'login'; // 'login', 'admin', 'kiosk'
 let unitsCache = [];
 
+// FIX: Inject CSS to ensure Modal appears ABOVE the Login Screen (z-index 9999)
+// Bootstrap default modal z-index is 1055, which is behind the login screen.
+const style = document.createElement('style');
+style.textContent = `
+    .modal { z-index: 10050 !important; }
+    .modal-backdrop { z-index: 10040 !important; }
+`;
+document.head.appendChild(style);
+
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. Logic nút Chỉ huy: Hiện Modal Mật khẩu
+    // Init Admin Password if not set
+    if (!localStorage.getItem('admin_password')) {
+        localStorage.setItem('admin_password', '123456');
+    }
+
+    // Initialize Bootstrap Modal for Login
+    const loginModalEl = document.getElementById('loginModal');
+    let loginModal = null;
+    if (loginModalEl) {
+        loginModal = new bootstrap.Modal(loginModalEl);
+    }
+
+    // 1. Logic nút Chỉ huy: Mở Modal Đăng nhập thay vì vào thẳng
     const btnCommander = document.getElementById('btn-commander');
     if (btnCommander) {
         btnCommander.addEventListener('click', () => {
-            const modalEl = document.getElementById('passwordModal');
-
-            // Kiểm tra và khởi tạo Modal từ bootstrap đã require
-            try {
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-
-                // Focus vào ô input khi modal hiện
-                modalEl.addEventListener('shown.bs.modal', () => {
-                    const userField = document.getElementById('adminUsername');
+            if (loginModal) {
+                loginModal.show();
+                // Focus vào ô username sau khi modal hiện
+                setTimeout(() => {
+                    const userField = document.getElementById('loginUsername');
                     if (userField) userField.focus();
-                });
-            } catch (err) {
-                console.error("Lỗi khởi tạo modal:", err);
-                showNotification("Không thể mở bảng đăng nhập. Lỗi hệ thống.", "danger");
+                }, 500);
+            }
+        });
+    }
+
+    // Xử lý Form Đăng nhập
+    const adminLoginForm = document.getElementById('adminLoginForm');
+    if (adminLoginForm) {
+        adminLoginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('loginUsername').value;
+            const p = document.getElementById('loginPassword').value;
+            const savedPass = localStorage.getItem('admin_password');
+
+            // Kiểm tra tài khoản admin (Dùng localStorage để lưu mật khẩu)
+            if (u === 'admin' && p === savedPass) {
+                if (loginModal) loginModal.hide();
+                enterAdminMode();
+
+                // Reset form để bảo mật
+                adminLoginForm.reset();
+            } else {
+                showNotification('Tên đăng nhập hoặc mật khẩu không đúng!', 'danger');
             }
         });
     }
@@ -36,45 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSoldier) {
         btnSoldier.addEventListener('click', () => {
             enterKioskMode();
-        });
-    }
-
-    // 3. Logic Submit trong Modal Đăng nhập
-    const btnLoginSubmit = document.getElementById('btn-login-submit');
-    if (btnLoginSubmit) {
-        btnLoginSubmit.addEventListener('click', attemptLogin);
-    }
-
-    // Hỗ trợ nhấn Enter trong ô mật khẩu để đăng nhập
-    const inputPass = document.getElementById('adminPassword');
-    if (inputPass) {
-        inputPass.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') attemptLogin();
-        });
-    }
-
-    // Logic form đổi mật khẩu
-    const settingsForm = document.getElementById('passwordForm');
-    if (settingsForm) {
-        settingsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const oldPass = formData.get('oldPass');
-            const newPass = formData.get('newPass');
-            const confirmPass = formData.get('confirmPass');
-
-            if (newPass !== confirmPass) {
-                showNotification("Mật khẩu mới không khớp!", "danger");
-                return;
-            }
-
-            const res = await ipcRenderer.invoke('auth:changePassword', { oldPass, newPass });
-            if (res.success) {
-                showNotification("Đổi mật khẩu thành công!", "success");
-                e.target.reset();
-            } else {
-                showNotification("Lỗi: " + res.error, "danger");
-            }
         });
     }
 
@@ -96,12 +94,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Logic đổi mật khẩu
+    const changePassForm = document.getElementById('changePasswordForm');
+    if (changePassForm) {
+        changePassForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const currentPass = document.getElementById('currentPassword').value;
+            const newPass = document.getElementById('newPassword').value;
+            const confirmPass = document.getElementById('confirmNewPassword').value;
+            const savedPass = localStorage.getItem('admin_password');
+
+            if (currentPass !== savedPass) {
+                showNotification('Mật khẩu hiện tại không đúng', 'danger');
+                return;
+            }
+
+            if (newPass.length < 4) {
+                showNotification('Mật khẩu mới phải có ít nhất 4 ký tự', 'danger');
+                return;
+            }
+
+            if (newPass !== confirmPass) {
+                showNotification('Mật khẩu mới không trùng khớp', 'danger');
+                return;
+            }
+
+            localStorage.setItem('admin_password', newPass);
+            showNotification('Đổi mật khẩu thành công!', 'success');
+            changePassForm.reset();
+        });
+    }
 });
 
 
 // --- SYSTEM NOTIFICATIONS ---
 function showNotification(message, type = 'info') {
     const container = document.getElementById('notification-container');
+    if (!container) return;
+
     const id = 'toast-' + Date.now();
     // Giao diện Toast hiện đại
     const html = `
@@ -123,74 +154,50 @@ function showNotification(message, type = 'info') {
 }
 
 
-// --- LOGIN & MODES ---
-
-async function attemptLogin() {
-    const userInput = document.getElementById('adminUsername');
-    const passInput = document.getElementById('adminPassword');
-    const errorMsg = document.getElementById('loginError');
-
-    const username = userInput.value;
-    const password = passInput.value;
-
-    const result = await ipcRenderer.invoke('sys:login', { username, password });
-
-    if (result.success) {
-        // Đóng Modal
-        const modalEl = document.getElementById('passwordModal');
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-
-        // Xóa background mờ của modal nếu còn sót lại
-        document.querySelector('.modal-backdrop')?.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style = '';
-
-        passInput.value = ''; // Xóa mật khẩu
-        errorMsg.classList.add('d-none'); // Ẩn lỗi cũ
-        enterAdminMode();
-    } else {
-        errorMsg.innerText = result.error || "Sai thông tin đăng nhập";
-        errorMsg.classList.remove('d-none');
-        // Hiệu ứng rung nhẹ báo lỗi
-        const modalContent = document.querySelector('.modal-content');
-        modalContent.classList.add('shake');
-        setTimeout(() => modalContent.classList.remove('shake'), 500);
-    }
-}
+// --- MODES ---
 
 function enterAdminMode() {
     currentMode = 'admin';
 
     // Hiệu ứng chuyển cảnh
-    document.getElementById('login-screen').style.opacity = '0';
-    setTimeout(() => {
-        document.getElementById('login-screen').classList.add('d-none');
-        document.getElementById('admin-layout').classList.remove('d-none');
-        document.getElementById('kiosk-layout').classList.add('d-none');
-        document.getElementById('login-screen').style.opacity = '1';
-    }, 300);
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+        loginScreen.style.opacity = '0';
+        setTimeout(() => {
+            loginScreen.classList.add('d-none');
+            document.getElementById('admin-layout').classList.remove('d-none');
+            document.getElementById('kiosk-layout').classList.add('d-none');
+            loginScreen.style.opacity = '1';
+        }, 300);
+    }
 
     loadUnits();
     loadSoldiers();
     loadUnitsTree();
-    showNotification("Đăng nhập thành công! Chào mừng Chỉ huy.", "success");
+    showNotification("Đã truy cập chế độ Chỉ huy.", "success");
 }
 
 function enterKioskMode() {
     currentMode = 'kiosk';
 
-    document.getElementById('login-screen').style.opacity = '0';
-    setTimeout(() => {
-        document.getElementById('login-screen').classList.add('d-none');
-        document.getElementById('admin-layout').classList.add('d-none');
-        document.getElementById('kiosk-layout').classList.remove('d-none');
-        document.getElementById('login-screen').style.opacity = '1';
-    }, 300);
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+        loginScreen.style.opacity = '0';
+        setTimeout(() => {
+            loginScreen.classList.add('d-none');
+            document.getElementById('admin-layout').classList.add('d-none');
+            document.getElementById('kiosk-layout').classList.remove('d-none');
+            loginScreen.style.opacity = '1';
+        }, 300);
+    }
 
-    // Inject Form template vào thẻ Card
-    const formHtml = document.getElementById('form-template').innerHTML;
-    document.querySelector('#kiosk-form-card .card-body').innerHTML = formHtml;
+    // Inject Form template vào thẻ Card (Chế độ kiosk)
+    const formTemplate = document.getElementById('form-template');
+    if (formTemplate) {
+        const formHtml = formTemplate.innerHTML;
+        const kioskBody = document.querySelector('#kiosk-form-card .card-body');
+        if (kioskBody) kioskBody.innerHTML = formHtml;
+    }
 
     loadUnitsForForm();
     setupFormListener();
@@ -210,7 +217,10 @@ function switchAdminView(view) {
         const el = document.getElementById('view-' + (v === 'add' ? 'add-container' : v));
         if (el) el.classList.add('d-none');
     });
-    navs.forEach(n => document.getElementById(n).classList.remove('active'));
+    navs.forEach(n => {
+        const el = document.getElementById(n);
+        if (el) el.classList.remove('active');
+    });
 
     // Hiện view được chọn
     if (view === 'dashboard') {
@@ -229,10 +239,13 @@ function switchAdminView(view) {
         document.getElementById('page-title').innerText = "NHẬP LIỆU MỚI";
 
         // Inject Form
-        const formHtml = document.getElementById('form-template').innerHTML;
-        document.getElementById('view-add-container').innerHTML = `<div class="card shadow-sm border-0"><div class="card-body p-4">${formHtml}</div></div>`;
-        loadUnitsForForm();
-        setupFormListener();
+        const formTemplate = document.getElementById('form-template');
+        if (formTemplate) {
+            const formHtml = formTemplate.innerHTML;
+            document.getElementById('view-add-container').innerHTML = `<div class="card shadow-sm border-0"><div class="card-body p-4">${formHtml}</div></div>`;
+            loadUnitsForForm();
+            setupFormListener();
+        }
     } else if (view === 'settings') {
         document.getElementById('view-settings').classList.remove('d-none');
         document.getElementById('nav-settings').classList.add('active');
@@ -322,6 +335,8 @@ async function loadSoldiers() {
 
     const soldiers = await ipcRenderer.invoke('db:getSoldiers', { unitId, type });
     const tbody = document.getElementById('soldierTableBody');
+    if (!tbody) return;
+
     tbody.innerHTML = '';
 
     if (soldiers.length === 0) {
@@ -395,7 +410,8 @@ function loadUnitsForForm() {
         // Sync text name on change
         select.onchange = () => {
             const text = select.options[select.selectedIndex].text;
-            document.getElementById('formUnitName').value = text;
+            const hiddenInput = document.getElementById('formUnitName');
+            if (hiddenInput) hiddenInput.value = text;
         };
 
         // Initial set

@@ -7,7 +7,6 @@ const SoldierDB = require('./database');
 
 const db = new SoldierDB();
 let mainWindow;
-let currentUser = null; // Track logged in user
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -35,33 +34,6 @@ app.on('window-all-closed', () => {
 });
 
 // --- IPC HANDLERS ---
-
-// 0. Login
-ipcMain.handle('sys:login', (event, { username, password }) => {
-  try {
-    const validUser = db.checkLogin(username, password);
-    if (validUser) {
-      currentUser = validUser;
-      return { success: true };
-    }
-    return { success: false, error: 'Tài khoản hoặc mật khẩu không chính xác.' };
-  } catch (err) {
-    return { success: false, error: 'Lỗi hệ thống: ' + err.message };
-  }
-});
-
-// 0.1 Change Password
-ipcMain.handle('auth:changePassword', (event, { oldPass, newPass }) => {
-  if (!currentUser) {
-    return { success: false, error: "Chưa đăng nhập." };
-  }
-  try {
-    db.changePassword(currentUser, oldPass, newPass);
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
 
 // 1. Units
 ipcMain.handle('db:getUnits', () => {

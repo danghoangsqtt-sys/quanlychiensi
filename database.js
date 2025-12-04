@@ -78,51 +78,11 @@ class SoldierDB {
       )
     `);
 
-    // 3. Users Table (New for Auth)
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password TEXT, 
-        role TEXT DEFAULT 'commander'
-      )
-    `);
-
     // Seed default Unit if empty
     const unitCount = this.db.prepare('SELECT count(*) as count FROM units').get();
     if (unitCount.count === 0) {
       this.db.prepare("INSERT INTO units (ten_don_vi) VALUES ('Đại đội 1')").run();
     }
-
-    // Seed default Admin if empty
-    const userCount = this.db.prepare('SELECT count(*) as count FROM users').get();
-    if (userCount.count === 0) {
-      // Password: '123456'
-      const defaultPass = this.hashPassword('123456');
-      this.db.prepare("INSERT INTO users (username, password, role) VALUES ('admin', ?, 'commander')").run(defaultPass);
-    }
-  }
-
-  // --- AUTH ---
-  checkLogin(username, password) {
-    const hashedPassword = this.hashPassword(password);
-    // Explicitly check both Username AND Password
-    const user = this.db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(username, hashedPassword);
-    return user ? user.username : null;
-  }
-
-  changePassword(username, oldPass, newPass) {
-    const hashedOld = this.hashPassword(oldPass);
-    const hashedNew = this.hashPassword(newPass);
-
-    const user = this.db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(username, hashedOld);
-
-    if (!user) {
-      throw new Error("Mật khẩu cũ không chính xác.");
-    }
-
-    this.db.prepare("UPDATE users SET password = ? WHERE username = ?").run(hashedNew, username);
-    return true;
   }
 
   // --- UNITS ---
