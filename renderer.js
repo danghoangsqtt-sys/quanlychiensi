@@ -1,26 +1,37 @@
-
 const { ipcRenderer } = require('electron');
+// QUAN TRỌNG: Require bootstrap trực tiếp để đảm bảo Modal hoạt động offline/electron
+const bootstrap = require('bootstrap');
 
 let currentMode = 'login'; // 'login', 'admin', 'kiosk'
 let unitsCache = [];
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Commander Button Logic: Show Password Modal
+
+    // 1. Logic nút Chỉ huy: Hiện Modal Mật khẩu
     const btnCommander = document.getElementById('btn-commander');
     if (btnCommander) {
         btnCommander.addEventListener('click', () => {
             const modalEl = document.getElementById('passwordModal');
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-            // Focus on input after modal transition
-            modalEl.addEventListener('shown.bs.modal', () => {
-                document.getElementById('adminUsername').focus();
-            });
+
+            // Kiểm tra và khởi tạo Modal từ bootstrap đã require
+            try {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+
+                // Focus vào ô input khi modal hiện
+                modalEl.addEventListener('shown.bs.modal', () => {
+                    const userField = document.getElementById('adminUsername');
+                    if (userField) userField.focus();
+                });
+            } catch (err) {
+                console.error("Lỗi khởi tạo modal:", err);
+                showNotification("Không thể mở bảng đăng nhập. Lỗi hệ thống.", "danger");
+            }
         });
     }
 
-    // 2. Soldier Button Logic: Go to Kiosk Mode (No Password)
+    // 2. Logic nút Chiến sĩ: Vào thẳng chế độ Kiosk
     const btnSoldier = document.getElementById('btn-soldier');
     if (btnSoldier) {
         btnSoldier.addEventListener('click', () => {
@@ -28,13 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Login Modal Submit Logic
+    // 3. Logic Submit trong Modal Đăng nhập
     const btnLoginSubmit = document.getElementById('btn-login-submit');
     if (btnLoginSubmit) {
         btnLoginSubmit.addEventListener('click', attemptLogin);
     }
 
-    // Allow Enter key to submit login
+    // Hỗ trợ nhấn Enter trong ô mật khẩu để đăng nhập
     const inputPass = document.getElementById('adminPassword');
     if (inputPass) {
         inputPass.addEventListener('keypress', (e) => {
@@ -42,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initialize listeners for Admin Settings Form
+    // Logic form đổi mật khẩu
     const settingsForm = document.getElementById('passwordForm');
     if (settingsForm) {
         settingsForm.addEventListener('submit', async (e) => {
@@ -67,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initialize Unit Form listener
+    // Logic form thêm đơn vị
     const unitForm = document.getElementById('unitForm');
     if (unitForm) {
         unitForm.addEventListener('submit', async (e) => {
@@ -92,15 +103,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function showNotification(message, type = 'info') {
     const container = document.getElementById('notification-container');
     const id = 'toast-' + Date.now();
+    // Giao diện Toast hiện đại
     const html = `
-        <div id="${id}" class="alert alert-${type} shadow border-0 alert-dismissible fade show" role="alert">
-            ${message}
+        <div id="${id}" class="alert alert-${type} toast-modern border-0 alert-dismissible fade show d-flex align-items-center" role="alert">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2 fs-5"></i>
+            <div>${message}</div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     `;
     container.insertAdjacentHTML('beforeend', html);
 
-    // Auto remove after 4 seconds
     setTimeout(() => {
         const el = document.getElementById(id);
         if (el) {
@@ -116,49 +128,67 @@ function showNotification(message, type = 'info') {
 async function attemptLogin() {
     const userInput = document.getElementById('adminUsername');
     const passInput = document.getElementById('adminPassword');
+    const errorMsg = document.getElementById('loginError');
+
     const username = userInput.value;
     const password = passInput.value;
 
-    // Send both username and password
     const result = await ipcRenderer.invoke('sys:login', { username, password });
 
     if (result.success) {
-        // Hide modal manually
+        // Đóng Modal
         const modalEl = document.getElementById('passwordModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
-        // Remove backdrop if stuck
+        // Xóa background mờ của modal nếu còn sót lại
         document.querySelector('.modal-backdrop')?.remove();
         document.body.classList.remove('modal-open');
+        document.body.style = '';
 
-        passInput.value = ''; // Clear password
+        passInput.value = ''; // Xóa mật khẩu
+        errorMsg.classList.add('d-none'); // Ẩn lỗi cũ
         enterAdminMode();
     } else {
-        document.getElementById('loginError').innerText = result.error || "Đăng nhập thất bại.";
-        showNotification("Đăng nhập thất bại: " + (result.error || ""), "danger");
+        errorMsg.innerText = result.error || "Sai thông tin đăng nhập";
+        errorMsg.classList.remove('d-none');
+        // Hiệu ứng rung nhẹ báo lỗi
+        const modalContent = document.querySelector('.modal-content');
+        modalContent.classList.add('shake');
+        setTimeout(() => modalContent.classList.remove('shake'), 500);
     }
 }
 
 function enterAdminMode() {
     currentMode = 'admin';
-    document.getElementById('login-screen').classList.add('d-none');
-    document.getElementById('admin-layout').classList.remove('d-none');
-    document.getElementById('kiosk-layout').classList.add('d-none');
 
-    loadUnits(); // Load units for filter
+    // Hiệu ứng chuyển cảnh
+    document.getElementById('login-screen').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('login-screen').classList.add('d-none');
+        document.getElementById('admin-layout').classList.remove('d-none');
+        document.getElementById('kiosk-layout').classList.add('d-none');
+        document.getElementById('login-screen').style.opacity = '1';
+    }, 300);
+
+    loadUnits();
     loadSoldiers();
     loadUnitsTree();
-    showNotification("Chào mừng Chỉ huy!", "success");
+    showNotification("Đăng nhập thành công! Chào mừng Chỉ huy.", "success");
 }
 
 function enterKioskMode() {
     currentMode = 'kiosk';
-    document.getElementById('login-screen').classList.add('d-none');
-    document.getElementById('admin-layout').classList.add('d-none');
-    document.getElementById('kiosk-layout').classList.remove('d-none');
 
-    // Move form to kiosk container
+    document.getElementById('login-screen').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('login-screen').classList.add('d-none');
+        document.getElementById('admin-layout').classList.add('d-none');
+        document.getElementById('kiosk-layout').classList.remove('d-none');
+        document.getElementById('login-screen').style.opacity = '1';
+    }, 300);
+
+    // Inject Form template vào thẻ Card
     const formHtml = document.getElementById('form-template').innerHTML;
     document.querySelector('#kiosk-form-card .card-body').innerHTML = formHtml;
 
@@ -167,21 +197,22 @@ function enterKioskMode() {
 }
 
 function logout() {
-    location.reload(); // Simplest way to reset state
+    location.reload();
 }
 
 // --- ADMIN NAVIGATION ---
 function switchAdminView(view) {
-    document.getElementById('view-dashboard').classList.add('d-none');
-    document.getElementById('view-units').classList.add('d-none');
-    document.getElementById('view-add-container').classList.add('d-none');
-    document.getElementById('view-settings').classList.add('d-none');
+    const views = ['dashboard', 'units', 'add', 'settings'];
+    const navs = ['nav-dashboard', 'nav-units', 'nav-add-admin', 'nav-settings'];
 
-    document.getElementById('nav-dashboard').classList.remove('active');
-    document.getElementById('nav-units').classList.remove('active');
-    document.getElementById('nav-add-admin').classList.remove('active');
-    document.getElementById('nav-settings').classList.remove('active');
+    // Ẩn tất cả views và deactive navs
+    views.forEach(v => {
+        const el = document.getElementById('view-' + (v === 'add' ? 'add-container' : v));
+        if (el) el.classList.add('d-none');
+    });
+    navs.forEach(n => document.getElementById(n).classList.remove('active'));
 
+    // Hiện view được chọn
     if (view === 'dashboard') {
         document.getElementById('view-dashboard').classList.remove('d-none');
         document.getElementById('nav-dashboard').classList.add('active');
@@ -199,7 +230,7 @@ function switchAdminView(view) {
 
         // Inject Form
         const formHtml = document.getElementById('form-template').innerHTML;
-        document.getElementById('view-add-container').innerHTML = `<div class="card shadow-sm p-4">${formHtml}</div>`;
+        document.getElementById('view-add-container').innerHTML = `<div class="card shadow-sm border-0"><div class="card-body p-4">${formHtml}</div></div>`;
         loadUnitsForForm();
         setupFormListener();
     } else if (view === 'settings') {
@@ -214,7 +245,7 @@ function switchAdminView(view) {
 async function loadUnits() {
     unitsCache = await ipcRenderer.invoke('db:getUnits');
 
-    // Populate Filters
+    // Fill filter dropdown
     const filterSelect = document.getElementById('unitFilter');
     if (filterSelect) {
         filterSelect.innerHTML = '<option value="all">Tất cả đơn vị</option>';
@@ -223,7 +254,7 @@ async function loadUnits() {
         });
     }
 
-    // Populate Parent Select in Unit Form
+    // Fill parent select
     const parentSelect = document.getElementById('newUnitParent');
     if (parentSelect) {
         parentSelect.innerHTML = '<option value="">-- Cấp cao nhất --</option>';
@@ -239,21 +270,21 @@ async function loadUnitsTree() {
     if (!container) return;
 
     if (!unitsCache.length) {
-        container.innerHTML = '<p class="text-muted">Chưa có đơn vị nào.</p>';
+        container.innerHTML = '<div class="text-center text-muted py-3">Chưa có đơn vị nào</div>';
         return;
     }
 
-    // Simple recursive tree builder
     const buildTree = (parentId) => {
         const children = unitsCache.filter(u => u.cap_tren_id === parentId);
         if (!children.length) return '';
-        let html = '<ul>';
+        let html = '<ul class="list-unstyled ps-3 border-start border-2">';
         children.forEach(c => {
             html += `
-                <li>
-                    <span class="unit-item" onclick="selectUnit(${c.id})">
-                        <i class="bi bi-shield"></i> ${c.ten_don_vi}
-                    </span>
+                <li class="mb-2">
+                    <div class="d-flex align-items-center p-2 rounded hover-bg-light" style="cursor: pointer;" onclick="selectUnit(${c.id})">
+                        <i class="bi bi-diagram-3 me-2 text-military"></i> 
+                        <span class="fw-medium">${c.ten_don_vi}</span>
+                    </div>
                     ${buildTree(c.id)}
                 </li>
             `;
@@ -265,13 +296,13 @@ async function loadUnitsTree() {
     container.innerHTML = buildTree(null);
 }
 
-// Make explicit for global onclick in generated HTML tree
 window.selectUnit = function (id) {
-    if (confirm('Bạn muốn xóa đơn vị này?')) {
+    // Trong thực tế có thể hiện modal sửa/xóa, ở đây demo xóa
+    if (confirm('Bạn có chắc muốn xóa đơn vị này? Hành động này không thể hoàn tác.')) {
         ipcRenderer.invoke('db:deleteUnit', id).then(res => {
             if (res.success) {
                 loadUnitsTree();
-                showNotification("Đã xóa đơn vị.", "success");
+                showNotification("Đã xóa đơn vị thành công.", "success");
             } else {
                 showNotification(res.error, "danger");
             }
@@ -284,7 +315,6 @@ window.selectUnit = function (id) {
 async function loadSoldiers() {
     const unitFilterEl = document.getElementById('unitFilter');
     const statusFilterEl = document.getElementById('statusFilter');
-
     if (!unitFilterEl || !statusFilterEl) return;
 
     const unitId = unitFilterEl.value;
@@ -295,43 +325,58 @@ async function loadSoldiers() {
     tbody.innerHTML = '';
 
     if (soldiers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center p-3 text-muted">Không có dữ liệu</td></tr>';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center p-5 text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    Không tìm thấy dữ liệu phù hợp
+                </td>
+            </tr>`;
         return;
     }
 
     soldiers.forEach(s => {
         let warning = '';
-        if (s.vay_no) warning += '<span class="badge bg-warning text-dark me-1">Vay nợ</span>';
-        if (s.su_dung_ma_tuy) warning += '<span class="badge bg-danger me-1">Ma túy</span>';
+        if (s.vay_no) warning += '<span class="badge bg-warning text-dark me-1"><i class="bi bi-cash"></i> Vay nợ</span>';
+        if (s.su_dung_ma_tuy) warning += '<span class="badge bg-danger me-1"><i class="bi bi-exclamation-octagon"></i> Ma túy</span>';
+        if (!warning) warning = '<span class="text-muted small">An toàn</span>';
 
         tbody.innerHTML += `
             <tr>
-                <td>${s.id}</td>
-                <td class="fw-bold">${s.ho_ten}</td>
-                <td>${s.cap_bac}</td>
+                <td class="ps-4 text-muted">#${s.id}</td>
+                <td>
+                    <div class="fw-bold text-military">${s.ho_ten}</div>
+                    <small class="text-muted">${s.ngay_sinh || '---'}</small>
+                </td>
+                <td><span class="badge bg-light text-dark border">${s.cap_bac}</span></td>
                 <td>${s.don_vi}</td>
                 <td>${warning}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="exportPDF(${s.id})">PDF</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSoldier(${s.id})">Xóa</button>
+                <td class="text-end pe-4">
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-light text-primary border" onclick="exportPDF(${s.id})" title="Xuất PDF">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </button>
+                        <button class="btn btn-sm btn-light text-danger border" onclick="deleteSoldier(${s.id})" title="Xóa">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
     });
 }
 
-// Expose global functions for table buttons
 window.exportPDF = async function (id) {
     const res = await ipcRenderer.invoke('sys:exportPDF', id);
-    if (res.success) showNotification('Đã xuất file: ' + res.path, "success");
-    else if (!res.cancelled) showNotification('Lỗi: ' + res.error, "danger");
+    if (res.success) showNotification('Xuất file thành công: ' + res.path, "success");
+    else if (!res.cancelled) showNotification('Lỗi xuất file: ' + res.error, "danger");
 }
 
 window.deleteSoldier = async function (id) {
-    if (confirm('Xóa hồ sơ này?')) {
+    if (confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa hồ sơ này không?')) {
         await ipcRenderer.invoke('db:deleteSoldier', id);
         loadSoldiers();
-        showNotification("Đã xóa hồ sơ.", "success");
+        showNotification("Đã xóa hồ sơ thành công.", "success");
     }
 }
 
@@ -341,6 +386,24 @@ function loadUnitsForForm() {
     const select = document.querySelector('select[name="don_vi_id"]');
     if (!select) return;
 
+    const populate = () => {
+        select.innerHTML = '';
+        unitsCache.forEach(u => {
+            select.innerHTML += `<option value="${u.id}">${u.ten_don_vi}</option>`;
+        });
+
+        // Sync text name on change
+        select.onchange = () => {
+            const text = select.options[select.selectedIndex].text;
+            document.getElementById('formUnitName').value = text;
+        };
+
+        // Initial set
+        if (select.options.length > 0) {
+            select.onchange();
+        }
+    };
+
     if (unitsCache.length === 0) {
         ipcRenderer.invoke('db:getUnits').then(units => {
             unitsCache = units;
@@ -349,34 +412,17 @@ function loadUnitsForForm() {
     } else {
         populate();
     }
-
-    function populate() {
-        select.innerHTML = '';
-        unitsCache.forEach(u => {
-            select.innerHTML += `<option value="${u.id}">${u.ten_don_vi}</option>`;
-        });
-
-        // Listener to sync text name
-        select.addEventListener('change', () => {
-            const text = select.options[select.selectedIndex].text;
-            document.getElementById('formUnitName').value = text;
-        });
-        // Init
-        if (select.options.length > 0) {
-            document.getElementById('formUnitName').value = select.options[0].text;
-        }
-    }
 }
 
 function setupFormListener() {
-    const form = document.querySelector('#soldierForm'); // Selects active form (Kiosk or Admin)
+    const form = document.querySelector('#soldierForm');
     if (!form) return;
 
-    // Remove old listener if any to avoid duplicates by cloning
-    // simple trick: clone and replace, or just ensure run once. 
-    // For this context, assuming standard usage.
+    // Clone to remove old listeners
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
 
-    form.addEventListener('submit', async (e) => {
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
@@ -388,21 +434,21 @@ function setupFormListener() {
 
         const res = await ipcRenderer.invoke('db:addSoldier', data);
         if (res.success) {
-            showNotification('Lưu hồ sơ thành công!', "success");
-            form.reset();
+            showNotification('Lưu hồ sơ mới thành công!', "success");
+            newForm.reset();
 
             if (currentMode === 'kiosk') {
-                window.scrollTo(0, 0);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
                 switchAdminView('dashboard');
             }
         } else {
-            showNotification('Lỗi: ' + res.error, "danger");
+            showNotification('Lỗi khi lưu: ' + res.error, "danger");
         }
     });
 }
 
-// Expose globals for HTML inline calls (Logout, SwitchView)
+// Global exposure
 window.logout = logout;
 window.switchAdminView = switchAdminView;
 window.loadSoldiers = loadSoldiers;
