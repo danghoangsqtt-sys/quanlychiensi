@@ -15,6 +15,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      webSecurity: false // allow loading local resources (images)
     },
   });
 
@@ -87,7 +88,33 @@ ipcMain.handle('db:deleteSoldier', (event, id) => {
   }
 });
 
-// 3. Export PDF
+// 3. Image Handling
+ipcMain.handle('sys:saveImage', async (event, sourcePath) => {
+  try {
+    if (!sourcePath) return null;
+
+    const userDataPath = app.getPath('userData');
+    const imagesDir = path.join(userDataPath, 'profile_images');
+
+    // Create dir if not exists
+    if (!fs.existsSync(imagesDir)) {
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+
+    const ext = path.extname(sourcePath);
+    const fileName = `img_${Date.now()}${ext}`;
+    const destPath = path.join(imagesDir, fileName);
+
+    fs.copyFileSync(sourcePath, destPath);
+
+    return destPath;
+  } catch (err) {
+    console.error("Save Image Error:", err);
+    return null;
+  }
+});
+
+// 4. Export PDF
 ipcMain.handle('sys:exportPDF', async (event, soldierId) => {
   try {
     const soldier = db.getSoldierById(soldierId);

@@ -1,4 +1,3 @@
-
 const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
@@ -28,7 +27,7 @@ class SoldierDB {
   }
 
   init() {
-    // 1. Soldiers Table
+    // 1. Soldiers Table Base
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS soldiers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,32 +41,9 @@ class SoldierDB {
         don_vi_id INTEGER,
         nhap_ngu_ngay TEXT,
         vao_dang_ngay TEXT,
-        sdt_rieng TEXT,
-        tk_facebook TEXT,
-        sdt_facebook TEXT,
-        tk_zalo TEXT,
-        sdt_zalo TEXT,
-        tk_tiktok TEXT,
-        ho_ten_bo TEXT,
-        ho_ten_me TEXT,
-        vo_chong TEXT,
-        con_cai TEXT,
-        hoan_canh_gia_dinh TEXT,
-        tien_an_tien_su TEXT,
-        tien_su_benh TEXT,
-        vay_no INTEGER DEFAULT 0,
-        chi_tiet_vay_no TEXT,
-        su_dung_ma_tuy INTEGER DEFAULT 0,
-        tham_gia_danh_bac INTEGER DEFAULT 0
+        sdt_rieng TEXT
       )
     `);
-
-    // Migration: Add don_vi_id if not exists
-    try {
-      this.db.exec(`ALTER TABLE soldiers ADD COLUMN don_vi_id INTEGER`);
-    } catch (e) {
-      // Column likely exists, ignore
-    }
 
     // 2. Units Table
     this.db.exec(`
@@ -83,6 +59,51 @@ class SoldierDB {
     if (unitCount.count === 0) {
       this.db.prepare("INSERT INTO units (ten_don_vi) VALUES ('Đại đội 1')").run();
     }
+
+    // 3. MIGRATION: Add new columns safely (including JSON columns)
+    const newColumns = [
+      // Basic Text Info
+      'anh_dai_dien TEXT',
+      'noi_sinh TEXT',
+      'ho_khau_thuong_tru TEXT',
+      'dan_toc TEXT',
+      'ton_giao TEXT',
+      'trinh_do_van_hoa TEXT',
+      'da_tot_nghiep INTEGER DEFAULT 0', // New column for Graduation status
+      'ngay_vao_doan TEXT',
+      'y_kien_nguyen_vong TEXT',
+
+      // Flags (Integer 0/1 for easy filtering)
+      'co_vay_no INTEGER DEFAULT 0',
+      'co_ma_tuy INTEGER DEFAULT 0',
+      'co_danh_bac INTEGER DEFAULT 0',
+
+      // JSON Data Columns
+      'hoan_canh_song TEXT', // JSON: song_chung_voi, nguoi_nuoi_duong, ly_do... (Sửa lỗi cú pháp)
+      'mang_xa_hoi TEXT', // JSON: facebook, zalo, tiktok arrays (Sửa lỗi cú pháp)
+      'tieu_su_ban_than TEXT', // JSON: Array of timeline (Sửa lỗi cú pháp)
+      'quan_he_gia_dinh TEXT', // JSON: vo, con, nguoi_yeu, cha_me_anh_em (Sửa lỗi cú pháp)
+      'thong_tin_gia_dinh_chung TEXT', // JSON: kinh_te, vi_pham_nguoi_than... (Sửa lỗi cú pháp)
+      'yeu_to_nuoc_ngoai TEXT', // JSON: than_nhan, di_nuoc_ngoai, ho_chieu, xuat_canh (Sửa lỗi cú pháp)
+      'lich_su_vi_pham TEXT', // JSON: dia_phuong, danh_bac, ma_tuy (Sửa lỗi cú pháp)
+      'tai_chinh_suc_khoe TEXT', // JSON: vay_no, kinh_doanh, covid (Sửa lỗi cú pháp)
+      'nang_khieu_so_truong TEXT', // Textarea (Sửa lỗi cú pháp)
+      'vi_pham_nuoc_ngoai TEXT'     // Textarea (Sửa lỗi cú pháp)
+    ];
+
+    newColumns.forEach(colDef => {
+      try {
+        // Check if column exists, if not add it
+        // Simple split to get column name
+        const colName = colDef.split(' ')[0];
+        const check = this.db.prepare(`SELECT COUNT(*) AS cnt FROM pragma_table_info('soldiers') WHERE name='${colName}'`).get();
+        if (check.cnt === 0) {
+          this.db.exec(`ALTER TABLE soldiers ADD COLUMN ${colDef}`);
+        }
+      } catch (e) {
+        console.error("Migration warning:", e.message);
+      }
+    });
   }
 
   // --- UNITS ---
@@ -102,19 +123,12 @@ class SoldierDB {
 
   // --- SOLDIERS ---
   addSoldier(data) {
-    const stmt = this.db.prepare(`
-      INSERT INTO soldiers (
-        ho_ten, ten_khac, ngay_sinh, cccd, cap_bac, chuc_vu, don_vi, don_vi_id, nhap_ngu_ngay, vao_dang_ngay,
-        sdt_rieng, tk_facebook, sdt_facebook, tk_zalo, sdt_zalo, tk_tiktok,
-        ho_ten_bo, ho_ten_me, vo_chong, con_cai, hoan_canh_gia_dinh,
-        tien_an_tien_su, tien_su_benh, vay_no, chi_tiet_vay_no, su_dung_ma_tuy, tham_gia_danh_bac
-      ) VALUES (
-        @ho_ten, @ten_khac, @ngay_sinh, @cccd, @cap_bac, @chuc_vu, @don_vi, @don_vi_id, @nhap_ngu_ngay, @vao_dang_ngay,
-        @sdt_rieng, @tk_facebook, @sdt_facebook, @tk_zalo, @sdt_zalo, @tk_tiktok,
-        @ho_ten_bo, @ho_ten_me, @vo_chong, @con_cai, @hoan_canh_gia_dinh,
-        @tien_an_tien_su, @tien_su_benh, @vay_no, @chi_tiet_vay_no, @su_dung_ma_tuy, @tham_gia_danh_bac
-      )
-    `);
+    // Dynamic Insert based on provided keys to support flexible schema
+    const keys = Object.keys(data);
+    const columns = keys.join(', ');
+    const placeholders = keys.map(k => `@${k}`).join(', ');
+
+    const stmt = this.db.prepare(`INSERT INTO soldiers (${columns}) VALUES (${placeholders})`);
     return stmt.run(data);
   }
 
@@ -125,11 +139,9 @@ class SoldierDB {
     if (filter.type === 'dang_vien') {
       query += " AND vao_dang_ngay IS NOT NULL AND vao_dang_ngay != ''";
     } else if (filter.type === 'vay_no') {
-      query += ' AND vay_no = 1';
-    } else if (filter.type === 'gia_dinh_kho_khan') {
-      query += " AND hoan_canh_gia_dinh LIKE 'Khó khăn'";
+      query += ' AND co_vay_no = 1';
     } else if (filter.type === 'ma_tuy') {
-      query += ' AND su_dung_ma_tuy = 1';
+      query += ' AND co_ma_tuy = 1';
     }
 
     if (filter.unitId && filter.unitId !== 'all') {

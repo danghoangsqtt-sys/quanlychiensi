@@ -45,7 +45,7 @@
         .btn {
             border-radius: 6px;
             font-weight: 500;
-            padding: 10px 20px;
+            padding: 8px 16px;
             transition: all 0.3s ease;
         }
 
@@ -74,7 +74,8 @@
         }
 
         .form-control:focus,
-        .form-select:focus {
+        .form-select:focus,
+        .form-check-input:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.2rem rgba(20, 69, 47, 0.15);
         }
@@ -294,6 +295,7 @@
             border-bottom: 2px solid var(--primary-color);
             color: var(--primary-color);
             font-weight: 600;
+            font-size: 0.9rem;
         }
 
         /* --- KIOSK MODE --- */
@@ -334,6 +336,78 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
             border-radius: 4px;
         }
+
+        /* --- IMAGE PREVIEW --- */
+        .image-upload-container {
+            width: 140px;
+            height: 180px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            margin: 0 auto;
+        }
+
+        .image-upload-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-upload-container:hover {
+            border-color: var(--primary-color);
+        }
+
+        /* TABS CUSTOMIZATION */
+        .nav-tabs {
+            border-bottom: 2px solid #eee;
+        }
+
+        .nav-tabs .nav-link {
+            color: #555;
+            font-weight: 500;
+            border: none;
+            padding: 12px 20px;
+            margin-bottom: 0;
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--primary-color);
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            font-weight: bold;
+            border-bottom: 3px solid var(--primary-color);
+            background: transparent;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sub-label {
+            font-size: 0.85rem;
+            color: #777;
+            margin-top: -5px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .sensitive-section {
+            border-left: 3px solid #dc3545;
+        }
     </style>
 </head>
 
@@ -349,7 +423,7 @@
                     <div class="app-title">QLQN SYSTEM</div>
                     <h2 class="mb-3">QUẢN LÝ HỒ SƠ<br>CHIẾN SĨ</h2>
                     <p class="opacity-75">Hệ thống quản lý thông tin quân nhân chuyên nghiệp, bảo mật và hiệu quả.</p>
-                    <small class="text-gold mt-4 d-block"><i class="bi bi-shield-check me-2"></i>Phiên bản 2.1.0</small>
+                    <small class="text-gold mt-4 d-block"><i class="bi bi-shield-check me-2"></i>Phiên bản 2.3.0</small>
                 </div>
             </div>
             <div class="login-right">
@@ -603,7 +677,7 @@
                                 </div>
 
                                 <div class="text-center text-muted mt-4">
-                                    <small>QLQN SYSTEM - Phiên bản 2.1.0</small><br>
+                                    <small>QLQN SYSTEM - Phiên bản 2.3.0</small><br>
                                     <small>Phát triển bởi DHsystem</small>
                                 </div>
                             </div>
@@ -618,8 +692,8 @@
     <!-- KIOSK LAYOUT -->
     <div id="kiosk-layout" class="d-none kiosk-container">
         <div class="kiosk-header-bar">
-            <h1 class="fw-bold mb-2">CẬP NHẬT THÔNG TIN CÁ NHÂN</h1>
-            <p class="opacity-75">Vui lòng điền đầy đủ và chính xác thông tin</p>
+            <h1 class="fw-bold mb-2">CẬP NHẬT LÝ LỊCH QUÂN NHÂN</h1>
+            <p class="opacity-75">Vui lòng điền đầy đủ, chính xác các thông tin dưới đây</p>
             <button class="btn btn-outline-light btn-sm mt-2" onclick="logout()">
                 <i class="bi bi-arrow-left"></i> Quay lại Đăng nhập
             </button>
@@ -627,7 +701,7 @@
 
         <div class="container pb-5">
             <div class="row justify-content-center">
-                <div class="col-lg-10">
+                <div class="col-lg-11">
                     <div id="kiosk-form-card" class="card kiosk-card border-0">
                         <div class="card-body p-5">
                             <!-- Form Injected Here -->
@@ -638,160 +712,721 @@
         </div>
     </div>
 
-    <!-- TEMPLATE: SOLDIER FORM (Used for both Admin & Kiosk) -->
+    <!-- TEMPLATE: SOLDIER FORM REDESIGNED -->
     <template id="form-template">
-        <form id="soldierForm">
-            <h5 class="text-military border-bottom pb-2 mb-4 fw-bold"><i class="bi bi-person-lines-fill me-2"></i>THÔNG
-                TIN CƠ BẢN</h5>
-            <div class="row g-3 mb-4">
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Họ và tên</label>
-                    <input type="text" class="form-control" name="ho_ten" required placeholder="NGUYỄN VĂN A">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Tên khác (nếu có)</label>
-                    <input type="text" class="form-control" name="ten_khac">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Ngày sinh</label>
-                    <input type="date" class="form-control" name="ngay_sinh" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Số CCCD/CMND</label>
-                    <input type="text" class="form-control" name="cccd" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Đơn vị</label>
-                    <select class="form-select" name="don_vi_id" required>
-                        <!-- Populated by JS -->
-                    </select>
-                    <input type="hidden" name="don_vi" id="formUnitName">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Cấp bậc / Chức vụ</label>
-                    <div class="d-flex gap-2">
-                        <select class="form-select" name="cap_bac">
-                            <option value="Binh nhì">Binh nhì</option>
-                            <option value="Binh nhất">Binh nhất</option>
-                            <option value="Hạ sĩ">Hạ sĩ</option>
-                            <option value="Trung sĩ">Trung sĩ</option>
-                            <option value="Thượng sĩ">Thượng sĩ</option>
-                            <option value="Thiếu úy">Thiếu úy</option>
-                            <option value="Trung úy">Trung úy</option>
-                        </select>
-                        <input type="text" class="form-control" name="chuc_vu" placeholder="Chức vụ">
+        <form id="soldierForm" class="needs-validation" novalidate>
+            <!-- HEAD TABS -->
+            <ul class="nav nav-tabs mb-4" id="formTabs" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-info"
+                        type="button">1. Thông tin chung</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bio"
+                        type="button">2. Tiểu sử cá nhân và mạng xã hội</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-family"
+                        type="button">3. Gia đình và hôn nhân</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-foreign"
+                        type="button">4. Yếu tố nước ngoài</button></li>
+                <li class="nav-item"><button class="nav-link text-danger fw-bold" data-bs-toggle="tab"
+                        data-bs-target="#tab-history" type="button">5. Lịch sử hoạt động xã hội</button></li>
+                <li class="nav-item"><button class="nav-link text-danger fw-bold" data-bs-toggle="tab"
+                        data-bs-target="#tab-finance" type="button">6. Tài chính và sức khỏe</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-aspirations"
+                        type="button">7. Cam kết và nguyện vọng</button></li>
+            </ul>
+
+            <div class="tab-content" id="formTabsContent">
+
+                <!-- TAB 1: THÔNG TIN CHUNG -->
+                <div class="tab-pane fade show active" id="tab-info" role="tabpanel">
+                    <div class="section-title"><i class="bi bi-person-lines-fill me-2"></i>Thông tin cơ bản</div>
+                    <div class="row g-4">
+                        <div class="col-md-3 text-center">
+                            <div class="image-upload-container mb-2"
+                                onclick="document.getElementById('imageInput').click()">
+                                <img id="imagePreview" src="https://via.placeholder.com/140x180?text=ẢNH+3x4"
+                                    alt="Ảnh thẻ">
+                            </div>
+                            <input type="file" id="imageInput" class="d-none" accept="image/*">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2"
+                                onclick="document.getElementById('imageInput').click()">
+                                <i class="bi bi-camera"></i> Chọn ảnh
+                            </button>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Họ và tên khai sinh <span
+                                            class="text-danger">*</span></label>
+                                    <input type="text" class="form-control text-uppercase fw-bold" name="ho_ten"
+                                        required placeholder="NGUYỄN VĂN A">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Tên khác (nếu có)</label>
+                                    <input type="text" class="form-control" name="ten_khac">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Ngày sinh <span
+                                            class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="ngay_sinh" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">CCCD/CMND <span
+                                            class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="cccd" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">SĐT Cá nhân</label>
+                                    <input type="text" class="form-control" name="sdt_rieng"
+                                        placeholder="Số thường dùng">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">HKTT (Số nhà, đường, ấp, khu phố, xã/phường...)</label>
+                                    <textarea class="form-control" name="ho_khau_thuong_tru" rows="2"
+                                        placeholder="Ghi cụ thể địa chỉ thường trú..."></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Nơi sinh (Xã, Huyện, Tỉnh)</label>
+                                    <input type="text" class="form-control" name="noi_sinh">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Dân tộc</label>
+                                    <input type="text" class="form-control" name="dan_toc" value="Kinh">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Tôn giáo</label>
+                                    <input type="text" class="form-control" name="ton_giao" value="Không">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Trình độ học vấn</label>
+                                    <input type="text" class="form-control" name="trinh_do_van_hoa" placeholder="12/12">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Đã tốt nghiệp chưa?</label>
+                                    <div class="d-flex gap-3 pt-1">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="da_tot_nghiep" value="1">
+                                            <label class="form-check-label">Đã TN</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="da_tot_nghiep" value="0"
+                                                checked>
+                                            <label class="form-check-label">Chưa TN</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">Năng khiếu/Sở trường</label>
+                                    <textarea class="form-control" name="nang_khieu_so_truong" rows="1"
+                                        placeholder="Vẽ, đàn, hát, sửa chữa..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-title mt-4"><i class="bi bi-briefcase-fill me-2"></i>Đơn vị & Tổ chức</div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Đơn vị <span class="text-danger">*</span></label>
+                            <select class="form-select" name="don_vi_id" required></select>
+                            <input type="hidden" name="don_vi" id="formUnitName">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Cấp bậc</label>
+                            <select class="form-select" name="cap_bac">
+                                <option value="Binh nhì">Binh nhì</option>
+                                <option value="Binh nhất">Binh nhất</option>
+                                <option value="Hạ sĩ">Hạ sĩ</option>
+                                <option value="Trung sĩ">Trung sĩ</option>
+                                <option value="Thượng sĩ">Thượng sĩ</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Chức vụ</label>
+                            <input type="text" class="form-control" name="chuc_vu">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ngày nhập ngũ</label>
+                            <input type="date" class="form-control" name="nhap_ngu_ngay">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ngày vào Đoàn</label>
+                            <input type="date" class="form-control" name="ngay_vao_doan">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ngày vào Đảng</label>
+                            <input type="date" class="form-control" name="vao_dang_ngay">
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Ngày nhập ngũ</label>
-                    <input type="date" class="form-control" name="nhap_ngu_ngay">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Ngày vào Đảng</label>
-                    <input type="date" class="form-control" name="vao_dang_ngay">
-                </div>
-            </div>
 
-            <h5 class="text-military border-bottom pb-2 mb-4 fw-bold mt-5"><i
-                    class="bi bi-telephone-inbound me-2"></i>LIÊN LẠC & MẠNG XÃ HỘI</h5>
-            <div class="row g-3 mb-4">
-                <div class="col-md-4">
-                    <label class="form-label">SĐT Riêng</label>
-                    <input type="text" class="form-control" name="sdt_rieng">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Facebook (Link/Tên)</label>
-                    <input type="text" class="form-control" name="tk_facebook">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">SĐT đăng ký Facebook</label>
-                    <input type="text" class="form-control" name="sdt_facebook">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Zalo</label>
-                    <input type="text" class="form-control" name="tk_zalo">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">SĐT đăng ký Zalo</label>
-                    <input type="text" class="form-control" name="sdt_zalo">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">TikTok ID</label>
-                    <input type="text" class="form-control" name="tk_tiktok">
-                </div>
-            </div>
+                <!-- TAB 2: TIỂU SỬ & MXH -->
+                <div class="tab-pane fade" id="tab-bio" role="tabpanel">
+                    <div class="section-title"><i class="bi bi-clock-history me-2"></i>Quá trình từ 10 tuổi đến nhập ngũ
+                        (học gì, làm gì, ở đâu)</div>
+                    <div class="table-responsive border rounded bg-white mb-4">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="20%">Thời gian</th>
+                                    <th width="40%">Làm gì? Chức vụ?</th>
+                                    <th width="35%">Ở đâu?</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bioTableBody"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary dashed-border mb-4"
+                        onclick="window.addBioRow()"><i class="bi bi-plus-lg"></i> Thêm mốc thời gian</button>
 
-            <h5 class="text-military border-bottom pb-2 mb-4 fw-bold mt-5"><i class="bi bi-house-heart me-2"></i>GIA
-                ĐÌNH & HOÀN CẢNH</h5>
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <label class="form-label">Họ tên Bố</label>
-                    <input type="text" class="form-control" name="ho_ten_bo">
+                    <div class="section-title"><i class="bi bi-phone me-2"></i>Mạng Xã Hội</div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-header fw-bold text-primary"><i
+                                        class="bi bi-facebook me-2"></i>Facebook</div>
+                                <div class="card-body">
+                                    <div id="container-facebook"></div>
+                                    <button type="button" class="btn btn-sm w-100 btn-outline-primary"
+                                        onclick="window.addSocialRow('facebook')">Thêm tài khoản</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-header fw-bold text-info"><i class="bi bi-chat-fill me-2"></i>Zalo
+                                </div>
+                                <div class="card-body">
+                                    <div id="container-zalo"></div>
+                                    <button type="button" class="btn btn-sm w-100 btn-outline-info"
+                                        onclick="window.addSocialRow('zalo')">Thêm tài khoản</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0 h-100">
+                                <div class="card-header fw-bold text-dark"><i class="bi bi-tiktok me-2"></i>Tiktok</div>
+                                <div class="card-body">
+                                    <div id="container-tiktok"></div>
+                                    <button type="button" class="btn btn-sm w-100 btn-outline-dark"
+                                        onclick="window.addSocialRow('tiktok')">Thêm tài khoản</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Họ tên Mẹ</label>
-                    <input type="text" class="form-control" name="ho_ten_me">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Vợ/Chồng (nếu có)</label>
-                    <input type="text" class="form-control" name="vo_chong">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Con cái</label>
-                    <input type="text" class="form-control" name="con_cai">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Hoàn cảnh gia đình</label>
-                    <textarea class="form-control" name="hoan_canh_gia_dinh" rows="2"
-                        placeholder="VD: Khó khăn, bố mẹ ly hôn, lao động chính..."></textarea>
-                </div>
-            </div>
 
-            <h5 class="text-danger border-bottom pb-2 mb-4 fw-bold mt-5"><i
-                    class="bi bi-exclamation-triangle me-2"></i>LỊCH SỬ & QUẢN LÝ</h5>
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <label class="form-label">Tiền án / Tiền sự</label>
-                    <textarea class="form-control" name="tien_an_tien_su" rows="2"></textarea>
+                <!-- TAB 3: GIA ĐÌNH -->
+                <div class="tab-pane fade" id="tab-family" role="tabpanel">
+                    <div class="section-title"><i class="bi bi-house-heart-fill me-2"></i>Hoàn cảnh sống trước nhập ngũ
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">Trước khi nhập ngũ sống chung với ai?</label>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="song_chung_voi_option"
+                                        value="Bố">
+                                    <label class="form-check-label">Bố</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="song_chung_voi_option"
+                                        value="Mẹ">
+                                    <label class="form-check-label">Mẹ</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="checkKhac"
+                                        onchange="toggleSection('divNguoiNuoiDuong', this.checked)">
+                                    <label class="form-check-label">Người nuôi dưỡng khác</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12 d-none" id="divNguoiNuoiDuong">
+                            <div class="card card-body bg-light">
+                                <label class="small text-muted mb-2">Thông tin người nuôi dưỡng khác:</label>
+                                <div class="row g-2">
+                                    <div class="col-md-4"><input type="text" class="form-control" id="nnd_ten"
+                                            placeholder="Họ tên (Sống chung với ai khác?)"></div>
+                                    <div class="col-md-4"><input type="text" class="form-control" id="nnd_nghe"
+                                            placeholder="Nghề nghiệp"></div>
+                                    <div class="col-md-4"><input type="text" class="form-control" id="nnd_diachi"
+                                            placeholder="Địa chỉ"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Lý do không sống chung với bố, mẹ (nếu có)</label>
+                            <textarea class="form-control" name="ly_do_khong_song_cung_bo_me" rows="3"
+                                placeholder="Ghi rõ lý do..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="section-title mt-4"><i class="bi bi-info-square-fill me-2"></i>Thông tin chung về gia
+                        đình</div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Nghề nghiệp chính của gia đình</label>
+                            <input type="text" class="form-control" id="gd_nghe_nghiep_chinh">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mức sống của gia đình</label>
+                            <select class="form-select" id="gd_muc_song">
+                                <option value="Nghèo">Nghèo</option>
+                                <option value="Đủ sống" selected>Đủ sống</option>
+                                <option value="Khá">Khá</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="checkFamilyCrime"
+                                    onchange="toggleSection('divFamilyCrime', this.checked)">
+                                <label class="form-check-label fw-bold">Trong gia đình (bố, mẹ, anh, chị em ruột) có ai
+                                    đã hoặc đang vi phạm pháp luật không?</label>
+                            </div>
+                            <div id="divFamilyCrime" class="d-none mt-2">
+                                <textarea class="form-control" id="gd_vi_pham_chi_tiet" rows="2"
+                                    placeholder="Nếu có là ai? Ghi cụ thể như thế nào? Có bị xử lý hình sự không?"></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Trong gia đình có ai bị Covid-19 không? Nếu có, ngày nào?</label>
+                            <input type="text" class="form-control" id="gd_lich_su_covid"
+                                placeholder="Ghi rõ thông tin...">
+                        </div>
+                    </div>
+
+                    <div class="section-title"><i class="bi bi-people-fill me-2"></i>Chi tiết thân nhân</div>
+                    <div class="alert alert-info py-2 small"><i class="bi bi-info-circle me-1"></i>Khai về bố, mẹ, anh,
+                        chị, em ruột, vợ, con và 3 người thân thiết nhất vào bảng dưới đây.</div>
+                    <div class="table-responsive border rounded bg-white mb-2">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="15%">Quan hệ</th>
+                                    <th width="20%">Họ tên</th>
+                                    <th width="10%">Năm sinh</th>
+                                    <th width="20%">Nghề nghiệp</th>
+                                    <th width="20%">Quê quán / Nơi ở</th>
+                                    <th width="12%">SĐT (Zalo/FB)</th>
+                                    <th width="3%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="familyTableBody"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-success dashed-border mb-4"
+                        onclick="window.addFamilyRow()"><i class="bi bi-plus-lg"></i> Thêm người thân</button>
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-warning">
+                                <div class="card-header bg-warning bg-opacity-10 fw-bold">Vợ & Con (Khai chi tiết)</div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="fw-bold d-block mb-1">Có vợ chưa?</label>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="radioVo" value="0"
+                                                checked onchange="toggleSection('divVoDetails', false)">
+                                            <label class="form-check-label">Chưa</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="radioVo" value="1"
+                                                onchange="toggleSection('divVoDetails', true)">
+                                            <label class="form-check-label">Có</label>
+                                        </div>
+                                    </div>
+
+                                    <div id="divVoDetails" class="d-none mb-4 border-bottom pb-2">
+                                        <input type="text" class="form-control mb-2" id="vo_ten"
+                                            placeholder="Họ tên vợ">
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6"><input type="text" class="form-control" id="vo_ns"
+                                                    placeholder="Năm sinh"></div>
+                                            <div class="col-6"><input type="text" class="form-control" id="vo_sdt"
+                                                    placeholder="SĐT"></div>
+                                        </div>
+                                        <input type="text" class="form-control mb-2" id="vo_nghe"
+                                            placeholder="Nghề nghiệp">
+                                        <textarea class="form-control" id="vo_diachi" rows="2"
+                                            placeholder="Nơi ở hiện nay của vợ"></textarea>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="fw-bold d-block mb-1">Có con chưa?</label>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="radioCon" value="0"
+                                                checked onchange="toggleSection('divConDetails', false)">
+                                            <label class="form-check-label">Chưa</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="radioCon" value="1"
+                                                onchange="toggleSection('divConDetails', true)">
+                                            <label class="form-check-label">Có</label>
+                                        </div>
+                                    </div>
+                                    <div id="divConDetails" class="d-none">
+                                        <div id="conList"></div>
+                                        <button type="button" class="btn btn-sm btn-link p-0"
+                                            onclick="window.addChildRow()">+ Thêm con</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border-danger">
+                                <div class="card-header bg-danger bg-opacity-10 fw-bold">Người yêu</div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="checkNY"
+                                            onchange="toggleSection('divNYDetails', this.checked)">
+                                        <label class="form-check-label fw-bold">Đang có người yêu</label>
+                                    </div>
+                                    <div id="divNYDetails" class="d-none">
+                                        <div id="nyList"></div>
+                                        <button type="button" class="btn btn-sm btn-link p-0"
+                                            onclick="window.addLoverRow()">+ Thêm người yêu</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Tiền sử bệnh lý</label>
-                    <textarea class="form-control" name="tien_su_benh" rows="2"></textarea>
+
+                <!-- TAB 4: YẾU TỐ NƯỚC NGOÀI -->
+                <div class="tab-pane fade" id="tab-foreign" role="tabpanel">
+                    <div class="section-title"><i class="bi bi-globe-americas me-2"></i>Quan hệ & Đi nước ngoài</div>
+
+                    <div class="mb-4 border-bottom pb-3">
+                        <label class="fw-bold d-block mb-2">Có quan hệ với ai ở nước ngoài không?</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="radioForeignRel" value="0" checked
+                                onchange="toggleSection('divForeignRel', false)">
+                            <label class="form-check-label">Không</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="radioForeignRel" value="1"
+                                onchange="toggleSection('divForeignRel', true)">
+                            <label class="form-check-label">Có</label>
+                        </div>
+
+                        <div id="divForeignRel" class="d-none mt-2">
+                            <table class="table table-bordered table-sm">
+                                <tbody id="foreignRelTable"></tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="window.addForeignRow()">Thêm
+                                người (Ai, Quan hệ, Nước nào)</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 border-bottom pb-3">
+                        <label class="fw-bold d-block mb-2">Đã từng đi nước ngoài chưa?</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="radioTravel" value="0" checked
+                                onchange="toggleSection('divTravel', false)">
+                            <label class="form-check-label">Chưa đi</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="radioTravel" value="1"
+                                onchange="toggleSection('divTravel', true)">
+                            <label class="form-check-label">Đã đi</label>
+                        </div>
+
+                        <div id="divTravel" class="d-none mt-2">
+                            <table class="table table-bordered table-sm">
+                                <tbody id="travelTable"></tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-secondary mb-3"
+                                onclick="window.addTravelRow()">Thêm lịch sử</button>
+
+                            <label class="form-label text-danger">Có vi phạm gì khi đang ở nước ngoài không?</label>
+                            <textarea class="form-control" id="foreign_violation"
+                                placeholder="Nếu có ghi rõ..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="fw-bold d-block mb-2">Đã có hộ chiếu chưa?</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="radioPassport" value="0" checked
+                                    onchange="toggleSection('divPassport', false)">
+                                <label class="form-check-label">Chưa</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="radioPassport" value="1"
+                                    onchange="toggleSection('divPassport', true)">
+                                <label class="form-check-label">Đã có</label>
+                            </div>
+                            <div id="divPassport" class="d-none mt-2 p-3 bg-light rounded">
+                                <label class="small">Dự định đi nước nào?</label>
+                                <input type="text" class="form-control mb-2" id="pp_dest">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold d-block mb-2">Bản thân đã hoặc đang làm thủ tục xuất cảnh định
+                                cư?</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="radioImmigration" value="0" checked
+                                    onchange="toggleSection('divImmigration', false)">
+                                <label class="form-check-label">Không</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="radioImmigration" value="1"
+                                    onchange="toggleSection('divImmigration', true)">
+                                <label class="form-check-label">Có</label>
+                            </div>
+                            <div id="divImmigration" class="d-none mt-2 p-3 bg-light rounded">
+                                <input type="text" class="form-control mb-2" id="im_country" placeholder="Nước định cư">
+                                <input type="text" class="form-control" id="im_sponsor" placeholder="Người bảo lãnh">
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-12">
-                    <div class="card bg-light border-0">
+
+                <!-- TAB 5: LỊCH SỬ & TỆ NẠN -->
+                <div class="tab-pane fade" id="tab-history" role="tabpanel">
+                    <div class="section-title text-danger"><i class="bi bi-shield-exclamation me-2"></i>Dữ Liệu Bảo Mật
+                        & Vi Phạm</div>
+                    <p class="text-danger small fst-italic mb-3">Lưu ý: Khai báo trung thực các nội dung dưới đây. Thông
+                        tin được bảo mật.</p>
+
+                    <div class="card mb-3 sensitive-section">
                         <div class="card-body">
-                            <label class="form-label fw-bold mb-3">Thông tin nhạy cảm (Tích chọn nếu có)</label>
-                            <div class="d-flex gap-4 flex-wrap">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="vay_no" value="1"
-                                        id="checkVayNo"
-                                        onchange="document.getElementById('chiTietVayNo').classList.toggle('d-none')">
-                                    <label class="form-check-label" for="checkVayNo">Đang vay nợ</label>
+                            <h6 class="fw-bold text-danger">1. Vi phạm tại địa phương (trước nhập ngũ)</h6>
+                            <div class="mb-2">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="vp_local" value="0" checked
+                                        onchange="toggleSection('divVPLocal', false)"> <label
+                                        class="form-check-label">Không vi phạm</label>
                                 </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="su_dung_ma_tuy" value="1"
-                                        id="checkMaTuy">
-                                    <label class="form-check-label" for="checkMaTuy">Tiền sử sử dụng ma túy</label>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="tham_gia_danh_bac" value="1"
-                                        id="checkDanhBac">
-                                    <label class="form-check-label" for="checkDanhBac">Tham gia đánh bạc</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="vp_local" value="1"
+                                        onchange="toggleSection('divVPLocal', true)"> <label
+                                        class="form-check-label fw-bold text-danger">Có vi phạm</label>
                                 </div>
                             </div>
-                            <div id="chiTietVayNo" class="mt-3 d-none">
-                                <input type="text" class="form-control" name="chi_tiet_vay_no"
-                                    placeholder="Chi tiết khoản vay (Số tiền, nơi vay...)">
+                            <div id="divVPLocal" class="d-none mt-2 p-3 bg-light rounded">
+                                <label class="form-label small fw-bold">Nội dung chi tiết (Thời gian, nội dung, ở
+                                    đâu?)</label>
+                                <textarea class="form-control mb-2" id="vp_local_content" rows="2"
+                                    placeholder="VD: Năm 2020 đánh nhau gây thương tích tại xã X..."></textarea>
+                                <label class="form-label small fw-bold">Kết quả giải quyết</label>
+                                <textarea class="form-control" id="vp_local_result" rows="2"
+                                    placeholder="Đã bị xử phạt hành chính / Đã hòa giải..."></textarea>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3 sensitive-section">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-danger">2. Tham gia đánh bạc / Cá độ</h6>
+                            <div class="mb-2">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="vp_gambling" value="0" checked
+                                        onchange="toggleSection('divGambling', false)"> <label
+                                        class="form-check-label">Chưa từng</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="vp_gambling" value="1"
+                                        onchange="toggleSection('divGambling', true)"> <label
+                                        class="form-check-label fw-bold text-danger">Đã từng tham gia</label>
+                                </div>
+                            </div>
+                            <div id="divGambling" class="d-none mt-2 row g-3 p-3 bg-light rounded">
+                                <div class="col-md-6">
+                                    <label class="small text-muted">Hình thức chơi</label>
+                                    <input type="text" class="form-control" id="gb_form"
+                                        placeholder="VD: Lô đề, bóng đá, xóc đĩa...">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small text-muted">Chơi với ai?</label>
+                                    <input type="text" class="form-control" id="gb_partner"
+                                        placeholder="VD: Bạn bè xã hội, người lạ...">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="small text-muted">Địa điểm / Thời gian</label>
+                                    <input type="text" class="form-control" id="gb_place"
+                                        placeholder="Chơi ở đâu? Khi nào?">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card sensitive-section">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-danger">3. Sử dụng Ma túy / Chất gây nghiện</h6>
+                            <div class="mb-2">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="vp_drugs" value="0" checked
+                                        onchange="toggleSection('divDrugs', false)"> <label
+                                        class="form-check-label">Chưa từng</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="vp_drugs" value="1"
+                                        onchange="toggleSection('divDrugs', true)"> <label
+                                        class="form-check-label fw-bold text-danger">Đã từng sử dụng</label>
+                                </div>
+                            </div>
+                            <div id="divDrugs" class="d-none mt-2 row g-3 p-3 bg-light rounded">
+                                <div class="col-md-4"><label class="small text-muted">Thời gian (từ khi
+                                        nào?)</label><input type="text" class="form-control" id="dr_time"></div>
+                                <div class="col-md-4"><label class="small text-muted">Loại chất</label><input
+                                        type="text" class="form-control" id="dr_type" placeholder="Cỏ, Ke, Đá..."></div>
+                                <div class="col-md-4"><label class="small text-muted">Số lần sử dụng</label><input
+                                        type="text" class="form-control" id="dr_count"></div>
+                                <div class="col-md-6"><label class="small text-muted">Sử dụng với ai?</label><input
+                                        type="text" class="form-control" id="dr_partner"></div>
+                                <div class="col-md-6"><label class="small text-muted">Đã bị xử lý chưa?</label><input
+                                        type="text" class="form-control" id="dr_result" placeholder="Có/Không"></div>
+                                <div class="col-md-12">
+                                    <label class="small text-muted">Hình thức xử lý (nếu có) & Chi tiết</label>
+                                    <textarea class="form-control" id="dr_details" rows="2"
+                                        placeholder="Ghi rõ hình thức xử lý..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 6: TÀI CHÍNH & SỨC KHỎE -->
+                <div class="tab-pane fade" id="tab-finance" role="tabpanel">
+                    <div class="section-title"><i class="bi bi-cash-stack me-2"></i>Tình hình tài chính</div>
+
+                    <!-- DEBT SECTION -->
+                    <div class="card mb-4 border-warning">
+                        <div class="card-header bg-warning bg-opacity-10 fw-bold text-dark">
+                            1. Vay nợ (Cá nhân / Tổ chức / Tín dụng đen...)
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="fw-bold d-block mb-1">Hiện tại có đang vay nợ không?</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="radioDebt" value="0" checked
+                                        onchange="toggleSection('divDebt', false)">
+                                    <label class="form-check-label">Không</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="radioDebt" value="1"
+                                        onchange="toggleSection('divDebt', true)">
+                                    <label class="form-check-label fw-bold">Có</label>
+                                </div>
+                            </div>
+
+                            <div id="divDebt" class="d-none row g-3 bg-light p-3 rounded">
+                                <div class="col-md-6"><label class="small fw-bold">Ai đứng tên vay?</label><input
+                                        type="text" class="form-control" id="debt_borrower_name"
+                                        placeholder="Bản thân / Vợ / Bố mẹ..."></div>
+                                <div class="col-md-6"><label class="small fw-bold">Ai là người trả nợ?</label><input
+                                        type="text" class="form-control" id="debt_payer"
+                                        placeholder="Người chịu trách nhiệm trả"></div>
+                                <div class="col-md-6"><label class="small fw-bold">Vay của ai / Tổ chức
+                                        nào?</label><input type="text" class="form-control" id="debt_who"></div>
+                                <div class="col-md-3"><label class="small fw-bold">Số tiền (VNĐ)</label><input
+                                        type="text" class="form-control" id="debt_amount"></div>
+                                <div class="col-md-3"><label class="small fw-bold">Hạn trả</label><input type="text"
+                                        class="form-control" id="debt_deadline"></div>
+                                <div class="col-md-6"><label class="small fw-bold">Hình thức vay</label><input
+                                        type="text" class="form-control" id="debt_type"
+                                        placeholder="Tín chấp / Thế chấp / App..."></div>
+                                <div class="col-md-6 d-flex align-items-center mt-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="debt_family_knows">
+                                        <label class="form-check-label fw-bold">Gia đình đã biết chuyện vay nợ</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12"><label class="small fw-bold">Mục đích vay & Chi tiết
+                                        khác</label><textarea class="form-control" id="debt_purpose" rows="2"
+                                        placeholder="Vay để làm gì? ..."></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BUSINESS SECTION -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light fw-bold">
+                            2. Kinh doanh & Bất động sản
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="d-block mb-1">Có tham gia góp vốn kinh doanh không?</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="radioBusiness" value="0" checked
+                                        onchange="toggleSection('divBusiness', false)">
+                                    <label class="form-check-label">Không</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="radioBusiness" value="1"
+                                        onchange="toggleSection('divBusiness', true)">
+                                    <label class="form-check-label">Có</label>
+                                </div>
+                            </div>
+                            <div id="divBusiness" class="d-none bg-light p-3 rounded">
+                                <label class="small fw-bold">Chi tiết đối tác & Địa chỉ kinh doanh</label>
+                                <textarea class="form-control" id="bus_details" rows="2"
+                                    placeholder="Tên tổ chức/cá nhân, tên công ty, địa chỉ cụ thể..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HEALTH SECTION -->
+                    <div class="section-title"><i class="bi bi-activity me-2"></i>Sức khỏe</div>
+                    <div class="card">
+                        <div class="card-body">
+                            <label class="fw-bold d-block mb-2">Đã từng mắc Covid-19 chưa?</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="radioCovid" value="0" checked
+                                    onchange="toggleSection('divCovid', false)">
+                                <label class="form-check-label">Không</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="radioCovid" value="1"
+                                    onchange="toggleSection('divCovid', true)">
+                                <label class="form-check-label">Có</label>
+                            </div>
+                            <div id="divCovid" class="d-none mt-2">
+                                <input type="text" class="form-control" id="covid_time"
+                                    placeholder="Thời gian mắc bệnh (Tháng/Năm)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 7: NGUYỆN VỌNG -->
+                <div class="tab-pane fade" id="tab-aspirations" role="tabpanel">
+                    <div class="section-title"><i class="bi bi-chat-square-quote-fill me-2"></i>Ý kiến, Nguyện vọng &
+                        Cam đoan</div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">II. Ý KIẾN VÀ NGUYỆN VỌNG CỦA BẢN THÂN</label>
+                        <p class="text-muted small">Đồng chí có ý kiến, đề xuất hoặc hoàn cảnh đặc biệt nào cần đơn vị
+                            quan tâm giúp đỡ không?</p>
+                        <textarea class="form-control" name="y_kien_nguyen_vong" rows="6"
+                            placeholder="Ghi rõ nội dung..."></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-danger">III. CAM ĐOAN</label>
+                        <div class="p-3 bg-light border rounded fst-italic">
+                            Tôi xin cam đoan những lời khai trên là đúng sự thật, nếu có gì sai trái tôi xin chịu hoàn
+                            toàn trách nhiệm trước pháp luật và kỷ luật Quân đội.
+                        </div>
+                    </div>
+
+                    <div class="row justify-content-end mt-5">
+                        <div class="col-md-4 text-center">
+                            <div class="fw-bold mb-4">NGƯỜI KHAI</div>
+                            <div class="border-bottom border-secondary mb-2" style="height: 40px;"></div>
+                            <input type="text"
+                                class="form-control text-center border-0 bg-transparent fw-bold text-uppercase"
+                                placeholder="Ký, ghi rõ họ tên" disabled>
+                            <small class="text-muted">(Ký tên vào bản in)</small>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="d-grid mt-5">
+            <div class="d-grid mt-5 pb-5">
                 <button type="submit" class="btn btn-military btn-lg py-3 fw-bold">
-                    <i class="bi bi-save me-2"></i>LƯU HỒ SƠ
+                    <i class="bi bi-save me-2"></i>HOÀN THÀNH & LƯU HỒ SƠ
                 </button>
             </div>
         </form>
