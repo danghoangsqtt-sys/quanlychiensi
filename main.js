@@ -1,3 +1,4 @@
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -6,14 +7,15 @@ const SoldierDB = require('./database');
 
 const db = new SoldierDB();
 let mainWindow;
+let currentUser = null; // Track logged in user
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1400,
+    height: 900,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false, // Per requirements for ease of use
+      contextIsolation: false,
     },
   });
 
@@ -34,7 +36,57 @@ app.on('window-all-closed', () => {
 
 // --- IPC HANDLERS ---
 
-// 1. Get List
+// 0. Login
+ipcMain.handle('sys:login', (event, password) => {
+  try {
+    const username = db.checkLogin(password);
+    if (username) {
+      currentUser = username;
+      return { success: true };
+    }
+    return { success: false, error: 'Sai mật khẩu' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 0.1 Change Password
+ipcMain.handle('auth:changePassword', (event, { oldPass, newPass }) => {
+  if (!currentUser) {
+    return { success: false, error: "Chưa đăng nhập." };
+  }
+  try {
+    db.changePassword(currentUser, oldPass, newPass);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 1. Units
+ipcMain.handle('db:getUnits', () => {
+  return db.getUnits();
+});
+
+ipcMain.handle('db:addUnit', (event, { name, parentId }) => {
+  try {
+    db.addUnit(name, parentId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('db:deleteUnit', (event, id) => {
+  try {
+    db.deleteUnit(id);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 2. Soldiers
 ipcMain.handle('db:getSoldiers', (event, filter) => {
   try {
     return db.getSoldiers(filter);
@@ -44,7 +96,6 @@ ipcMain.handle('db:getSoldiers', (event, filter) => {
   }
 });
 
-// 2. Add Soldier
 ipcMain.handle('db:addSoldier', (event, data) => {
   try {
     const result = db.addSoldier(data);
@@ -55,7 +106,6 @@ ipcMain.handle('db:addSoldier', (event, data) => {
   }
 });
 
-// 3. Delete Soldier
 ipcMain.handle('db:deleteSoldier', (event, id) => {
   try {
     db.deleteSoldier(id);
@@ -65,66 +115,57 @@ ipcMain.handle('db:deleteSoldier', (event, id) => {
   }
 });
 
-// 4. Export PDF
+// 3. Export PDF
 ipcMain.handle('sys:exportPDF', async (event, soldierId) => {
   try {
     const soldier = db.getSoldierById(soldierId);
     if (!soldier) throw new Error('Soldier not found');
 
-    // Load Template
-    // NOTE: Ensure 'assets/templates/1.pdf' exists in your project folder
     const templatePath = path.join(__dirname, 'assets', 'templates', '1.pdf');
-    
+
+    // Check if template exists
     if (!fs.existsSync(templatePath)) {
-        throw new Error("Template file 'assets/templates/1.pdf' not found.");
+      return { success: false, error: "Template file 'assets/templates/1.pdf' not found." };
     }
 
     const existingPdfBytes = fs.readFileSync(templatePath);
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
-    const form = pdfDoc.getForm();
     const pages = pdfDoc.getPages();
     const firstPage = pages[0];
-    
-    // Embed a font that supports Vietnamese if needed, 
-    // but StandardFonts.Helvetica is limited. 
-    // For Vietnamese, you usually need to embed a custom font file (.ttf).
-    // Using StandardFonts for demonstration.
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    // Coordinate Mapping (Placeholder Coordinates - X, Y from bottom-left)
-    // You MUST adjust these values based on your actual 1.pdf layout.
+    // Placeholder Coords (Update these based on real PDF)
     const coords = {
-        ho_ten: { x: 150, y: 700 },
-        ngay_sinh: { x: 150, y: 680 },
-        cap_bac: { x: 400, y: 700 },
-        don_vi: { x: 150, y: 660 },
-        sdt_rieng: { x: 150, y: 640 },
-        hoan_canh_gia_dinh: { x: 150, y: 600 },
-        // ... add other mappings
+      ho_ten: { x: 150, y: 700 },
+      ngay_sinh: { x: 150, y: 680 },
+      cap_bac: { x: 400, y: 700 },
+      don_vi: { x: 150, y: 660 },
+      sdt_rieng: { x: 150, y: 640 },
+      hoan_canh_gia_dinh: { x: 150, y: 600 },
+      tien_an_tien_su: { x: 150, y: 550 }
     };
 
     const drawText = (text, key) => {
-        if (!text || !coords[key]) return;
-        firstPage.drawText(String(text), {
-            x: coords[key].x,
-            y: coords[key].y,
-            size: 11,
-            font: font,
-            color: rgb(0, 0, 0),
-        });
+      if (!text || !coords[key]) return;
+      firstPage.drawText(String(text), {
+        x: coords[key].x,
+        y: coords[key].y,
+        size: 11,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
     };
 
-    // Draw fields
     drawText(soldier.ho_ten, 'ho_ten');
     drawText(soldier.ngay_sinh, 'ngay_sinh');
     drawText(soldier.cap_bac, 'cap_bac');
     drawText(soldier.don_vi, 'don_vi');
     drawText(soldier.sdt_rieng, 'sdt_rieng');
     drawText(soldier.hoan_canh_gia_dinh, 'hoan_canh_gia_dinh');
+    drawText(soldier.tien_an_tien_su, 'tien_an_tien_su');
 
-    // Save Dialog
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
-      title: 'Lưu Hồ Sơ Chi tiết',
+      title: 'Lưu Hồ Sơ',
       defaultPath: `HoSo_${soldier.ho_ten.replace(/\s+/g, '_')}.pdf`,
       filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
     });
@@ -134,7 +175,7 @@ ipcMain.handle('sys:exportPDF', async (event, soldierId) => {
       fs.writeFileSync(filePath, pdfBytes);
       return { success: true, path: filePath };
     }
-    
+
     return { success: false, cancelled: true };
 
   } catch (err) {
