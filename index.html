@@ -136,6 +136,15 @@
             transform: scale(1.02);
         }
 
+        /* --- NOTIFICATION CONTAINER --- */
+        #notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            min-width: 300px;
+        }
+
         /* --- MAIN LAYOUT --- */
         .sidebar {
             height: 100vh;
@@ -245,6 +254,9 @@
 
 <body>
 
+    <!-- SYSTEM NOTIFICATIONS -->
+    <div id="notification-container"></div>
+
     <!-- LOGIN SCREEN -->
     <div id="login-screen">
         <div class="login-left">
@@ -255,17 +267,19 @@
         <div class="login-right">
             <h4 class="mb-4 text-military fw-bold">CHỌN CHẾ ĐỘ ĐĂNG NHẬP</h4>
 
-            <button class="btn btn-military login-option-btn shadow" onclick="showPasswordModal()">
+            <!-- Button 1: Commander (Shows Password Modal) -->
+            <button id="btn-commander" class="btn btn-military login-option-btn shadow">
                 DÀNH CHO CHỈ HUY
             </button>
 
-            <button class="btn btn-outline-secondary login-option-btn" onclick="enterKioskMode()">
+            <!-- Button 2: Soldier (Kiosk Mode - No Password) -->
+            <button id="btn-soldier" class="btn btn-outline-secondary login-option-btn">
                 CHIẾN SĨ NHẬP LIỆU
             </button>
         </div>
     </div>
 
-    <!-- PASSWORD MODAL -->
+    <!-- PASSWORD MODAL (Updated with Username) -->
     <div class="modal fade" id="passwordModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -275,14 +289,19 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label>Mật khẩu quản trị</label>
+                        <label class="form-label fw-bold">Tài khoản</label>
+                        <input type="text" id="adminUsername" class="form-control"
+                            placeholder="Nhập tài khoản (admin)..." value="admin">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mật khẩu</label>
                         <input type="password" id="adminPassword" class="form-control" placeholder="Nhập mật khẩu...">
                     </div>
-                    <div id="loginError" class="text-danger small"></div>
+                    <div id="loginError" class="text-danger small fw-bold"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-military" onclick="attemptLogin()">Đăng nhập</button>
+                    <button id="btn-login-submit" type="button" class="btn btn-military">Đăng nhập</button>
                 </div>
             </div>
         </div>

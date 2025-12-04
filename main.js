@@ -37,16 +37,16 @@ app.on('window-all-closed', () => {
 // --- IPC HANDLERS ---
 
 // 0. Login
-ipcMain.handle('sys:login', (event, password) => {
+ipcMain.handle('sys:login', (event, { username, password }) => {
   try {
-    const username = db.checkLogin(password);
-    if (username) {
-      currentUser = username;
+    const validUser = db.checkLogin(username, password);
+    if (validUser) {
+      currentUser = validUser;
       return { success: true };
     }
-    return { success: false, error: 'Sai mật khẩu' };
+    return { success: false, error: 'Tài khoản hoặc mật khẩu không chính xác.' };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: 'Lỗi hệ thống: ' + err.message };
   }
 });
 

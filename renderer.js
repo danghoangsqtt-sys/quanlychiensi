@@ -4,24 +4,139 @@ const { ipcRenderer } = require('electron');
 let currentMode = 'login'; // 'login', 'admin', 'kiosk'
 let unitsCache = [];
 
-// --- LOGIN & MODES ---
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Commander Button Logic: Show Password Modal
+    const btnCommander = document.getElementById('btn-commander');
+    if (btnCommander) {
+        btnCommander.addEventListener('click', () => {
+            const modalEl = document.getElementById('passwordModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+            // Focus on input after modal transition
+            modalEl.addEventListener('shown.bs.modal', () => {
+                document.getElementById('adminUsername').focus();
+            });
+        });
+    }
 
-function showPasswordModal() {
-    const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
-    modal.show();
+    // 2. Soldier Button Logic: Go to Kiosk Mode (No Password)
+    const btnSoldier = document.getElementById('btn-soldier');
+    if (btnSoldier) {
+        btnSoldier.addEventListener('click', () => {
+            enterKioskMode();
+        });
+    }
+
+    // 3. Login Modal Submit Logic
+    const btnLoginSubmit = document.getElementById('btn-login-submit');
+    if (btnLoginSubmit) {
+        btnLoginSubmit.addEventListener('click', attemptLogin);
+    }
+
+    // Allow Enter key to submit login
+    const inputPass = document.getElementById('adminPassword');
+    if (inputPass) {
+        inputPass.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') attemptLogin();
+        });
+    }
+
+    // Initialize listeners for Admin Settings Form
+    const settingsForm = document.getElementById('passwordForm');
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const oldPass = formData.get('oldPass');
+            const newPass = formData.get('newPass');
+            const confirmPass = formData.get('confirmPass');
+
+            if (newPass !== confirmPass) {
+                showNotification("Mật khẩu mới không khớp!", "danger");
+                return;
+            }
+
+            const res = await ipcRenderer.invoke('auth:changePassword', { oldPass, newPass });
+            if (res.success) {
+                showNotification("Đổi mật khẩu thành công!", "success");
+                e.target.reset();
+            } else {
+                showNotification("Lỗi: " + res.error, "danger");
+            }
+        });
+    }
+
+    // Initialize Unit Form listener
+    const unitForm = document.getElementById('unitForm');
+    if (unitForm) {
+        unitForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('newUnitName').value;
+            const parent = document.getElementById('newUnitParent').value || null;
+
+            const res = await ipcRenderer.invoke('db:addUnit', { name, parentId: parent });
+            if (res.success) {
+                document.getElementById('unitForm').reset();
+                loadUnitsTree();
+                showNotification("Thêm đơn vị thành công.", "success");
+            } else {
+                showNotification(res.error, "danger");
+            }
+        });
+    }
+});
+
+
+// --- SYSTEM NOTIFICATIONS ---
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const id = 'toast-' + Date.now();
+    const html = `
+        <div id="${id}" class="alert alert-${type} shadow border-0 alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('show');
+            setTimeout(() => el.remove(), 150);
+        }
+    }, 4000);
 }
 
+
+// --- LOGIN & MODES ---
+
 async function attemptLogin() {
-    const pass = document.getElementById('adminPassword').value;
-    const result = await ipcRenderer.invoke('sys:login', pass);
+    const userInput = document.getElementById('adminUsername');
+    const passInput = document.getElementById('adminPassword');
+    const username = userInput.value;
+    const password = passInput.value;
+
+    // Send both username and password
+    const result = await ipcRenderer.invoke('sys:login', { username, password });
 
     if (result.success) {
-        document.getElementById('passwordModal').classList.remove('show');
+        // Hide modal manually
+        const modalEl = document.getElementById('passwordModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // Remove backdrop if stuck
         document.querySelector('.modal-backdrop')?.remove();
         document.body.classList.remove('modal-open');
+
+        passInput.value = ''; // Clear password
         enterAdminMode();
     } else {
-        document.getElementById('loginError').innerText = "Mật khẩu không đúng!";
+        document.getElementById('loginError').innerText = result.error || "Đăng nhập thất bại.";
+        showNotification("Đăng nhập thất bại: " + (result.error || ""), "danger");
     }
 }
 
@@ -34,6 +149,7 @@ function enterAdminMode() {
     loadUnits(); // Load units for filter
     loadSoldiers();
     loadUnitsTree();
+    showNotification("Chào mừng Chỉ huy!", "success");
 }
 
 function enterKioskMode() {
@@ -100,22 +216,28 @@ async function loadUnits() {
 
     // Populate Filters
     const filterSelect = document.getElementById('unitFilter');
-    filterSelect.innerHTML = '<option value="all">Tất cả đơn vị</option>';
-    unitsCache.forEach(u => {
-        filterSelect.innerHTML += `<option value="${u.id}">${u.ten_don_vi}</option>`;
-    });
+    if (filterSelect) {
+        filterSelect.innerHTML = '<option value="all">Tất cả đơn vị</option>';
+        unitsCache.forEach(u => {
+            filterSelect.innerHTML += `<option value="${u.id}">${u.ten_don_vi}</option>`;
+        });
+    }
 
     // Populate Parent Select in Unit Form
     const parentSelect = document.getElementById('newUnitParent');
-    parentSelect.innerHTML = '<option value="">-- Cấp cao nhất --</option>';
-    unitsCache.forEach(u => {
-        parentSelect.innerHTML += `<option value="${u.id}">${u.ten_don_vi}</option>`;
-    });
+    if (parentSelect) {
+        parentSelect.innerHTML = '<option value="">-- Cấp cao nhất --</option>';
+        unitsCache.forEach(u => {
+            parentSelect.innerHTML += `<option value="${u.id}">${u.ten_don_vi}</option>`;
+        });
+    }
 }
 
 async function loadUnitsTree() {
     await loadUnits();
     const container = document.getElementById('unitTreeContainer');
+    if (!container) return;
+
     if (!unitsCache.length) {
         container.innerHTML = '<p class="text-muted">Chưa có đơn vị nào.</p>';
         return;
@@ -143,34 +265,30 @@ async function loadUnitsTree() {
     container.innerHTML = buildTree(null);
 }
 
-function selectUnit(id) {
+// Make explicit for global onclick in generated HTML tree
+window.selectUnit = function (id) {
     if (confirm('Bạn muốn xóa đơn vị này?')) {
         ipcRenderer.invoke('db:deleteUnit', id).then(res => {
-            if (res.success) loadUnitsTree();
-            else alert(res.error);
+            if (res.success) {
+                loadUnitsTree();
+                showNotification("Đã xóa đơn vị.", "success");
+            } else {
+                showNotification(res.error, "danger");
+            }
         });
     }
 }
 
-document.getElementById('unitForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('newUnitName').value;
-    const parent = document.getElementById('newUnitParent').value || null;
-
-    const res = await ipcRenderer.invoke('db:addUnit', { name, parentId: parent });
-    if (res.success) {
-        document.getElementById('unitForm').reset();
-        loadUnitsTree();
-    } else {
-        alert(res.error);
-    }
-});
-
 // --- SOLDIERS ---
 
 async function loadSoldiers() {
-    const unitId = document.getElementById('unitFilter').value;
-    const type = document.getElementById('statusFilter').value;
+    const unitFilterEl = document.getElementById('unitFilter');
+    const statusFilterEl = document.getElementById('statusFilter');
+
+    if (!unitFilterEl || !statusFilterEl) return;
+
+    const unitId = unitFilterEl.value;
+    const type = statusFilterEl.value;
 
     const soldiers = await ipcRenderer.invoke('db:getSoldiers', { unitId, type });
     const tbody = document.getElementById('soldierTableBody');
@@ -202,42 +320,20 @@ async function loadSoldiers() {
     });
 }
 
-async function exportPDF(id) {
+// Expose global functions for table buttons
+window.exportPDF = async function (id) {
     const res = await ipcRenderer.invoke('sys:exportPDF', id);
-    if (res.success) alert('Đã xuất file: ' + res.path);
-    else if (!res.cancelled) alert('Lỗi: ' + res.error);
+    if (res.success) showNotification('Đã xuất file: ' + res.path, "success");
+    else if (!res.cancelled) showNotification('Lỗi: ' + res.error, "danger");
 }
 
-async function deleteSoldier(id) {
+window.deleteSoldier = async function (id) {
     if (confirm('Xóa hồ sơ này?')) {
         await ipcRenderer.invoke('db:deleteSoldier', id);
         loadSoldiers();
+        showNotification("Đã xóa hồ sơ.", "success");
     }
 }
-
-// --- SETTINGS (NEW) ---
-
-document.getElementById('passwordForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const oldPass = formData.get('oldPass');
-    const newPass = formData.get('newPass');
-    const confirmPass = formData.get('confirmPass');
-
-    if (newPass !== confirmPass) {
-        alert("Mật khẩu mới không khớp!");
-        return;
-    }
-
-    const res = await ipcRenderer.invoke('auth:changePassword', { oldPass, newPass });
-    if (res.success) {
-        alert("Đổi mật khẩu thành công!");
-        e.target.reset();
-    } else {
-        alert("Lỗi: " + res.error);
-    }
-});
-
 
 // --- FORM HANDLING ---
 
@@ -245,7 +341,6 @@ function loadUnitsForForm() {
     const select = document.querySelector('select[name="don_vi_id"]');
     if (!select) return;
 
-    // We assume unitsCache is populated or fetch it
     if (unitsCache.length === 0) {
         ipcRenderer.invoke('db:getUnits').then(units => {
             unitsCache = units;
@@ -277,6 +372,10 @@ function setupFormListener() {
     const form = document.querySelector('#soldierForm'); // Selects active form (Kiosk or Admin)
     if (!form) return;
 
+    // Remove old listener if any to avoid duplicates by cloning
+    // simple trick: clone and replace, or just ensure run once. 
+    // For this context, assuming standard usage.
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -289,17 +388,21 @@ function setupFormListener() {
 
         const res = await ipcRenderer.invoke('db:addSoldier', data);
         if (res.success) {
-            alert('Lưu hồ sơ thành công!');
+            showNotification('Lưu hồ sơ thành công!', "success");
             form.reset();
 
             if (currentMode === 'kiosk') {
-                // Kiosk stays, maybe scroll top
                 window.scrollTo(0, 0);
             } else {
                 switchAdminView('dashboard');
             }
         } else {
-            alert('Lỗi: ' + res.error);
+            showNotification('Lỗi: ' + res.error, "danger");
         }
     });
 }
+
+// Expose globals for HTML inline calls (Logout, SwitchView)
+window.logout = logout;
+window.switchAdminView = switchAdminView;
+window.loadSoldiers = loadSoldiers;

@@ -2,11 +2,22 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
+const { app } = require('electron');
 
 class SoldierDB {
   constructor() {
-    // Determine database path
-    const dbPath = path.resolve(__dirname, 'soldiers.db');
+    // SECURITY FIX: Use 'userData' (AppData) instead of app root
+    const userDataPath = app.getPath('userData');
+
+    // Ensure directory exists
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+
+    const dbPath = path.join(userDataPath, 'soldiers.db');
+    console.log("Database Path:", dbPath);
+
     this.db = new Database(dbPath);
     this.init();
   }
@@ -27,8 +38,8 @@ class SoldierDB {
         cccd TEXT,
         cap_bac TEXT,
         chuc_vu TEXT,
-        don_vi TEXT, -- Kept for PDF compatibility (Text Name)
-        don_vi_id INTEGER, -- Link to units table
+        don_vi TEXT,
+        don_vi_id INTEGER,
         nhap_ngu_ngay TEXT,
         vao_dang_ngay TEXT,
         sdt_rieng TEXT,
@@ -86,18 +97,17 @@ class SoldierDB {
     // Seed default Admin if empty
     const userCount = this.db.prepare('SELECT count(*) as count FROM users').get();
     if (userCount.count === 0) {
+      // Password: '123456'
       const defaultPass = this.hashPassword('123456');
       this.db.prepare("INSERT INTO users (username, password, role) VALUES ('admin', ?, 'commander')").run(defaultPass);
     }
   }
 
   // --- AUTH ---
-  checkLogin(password) {
-    // In a real app, pass username. Here we assume 'admin' is the commander.
+  checkLogin(username, password) {
     const hashedPassword = this.hashPassword(password);
-    const user = this.db.prepare("SELECT * FROM users WHERE role = 'commander' AND password = ?").get(hashedPassword);
-
-    // Return the username if found, else null
+    // Explicitly check both Username AND Password
+    const user = this.db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(username, hashedPassword);
     return user ? user.username : null;
   }
 
@@ -125,7 +135,6 @@ class SoldierDB {
   }
 
   deleteUnit(id) {
-    // Prevent delete if soldiers exist in unit
     const soldierCount = this.db.prepare('SELECT count(*) as count FROM soldiers WHERE don_vi_id = ?').get(id);
     if (soldierCount.count > 0) throw new Error('Đơn vị đang có người, không thể xóa.');
     return this.db.prepare('DELETE FROM units WHERE id = ?').run(id);
@@ -153,7 +162,6 @@ class SoldierDB {
     let query = 'SELECT * FROM soldiers WHERE 1=1';
     const params = [];
 
-    // Filter by Type
     if (filter.type === 'dang_vien') {
       query += " AND vao_dang_ngay IS NOT NULL AND vao_dang_ngay != ''";
     } else if (filter.type === 'vay_no') {
@@ -164,7 +172,6 @@ class SoldierDB {
       query += ' AND su_dung_ma_tuy = 1';
     }
 
-    // Filter by Unit
     if (filter.unitId && filter.unitId !== 'all') {
       query += ' AND don_vi_id = ?';
       params.push(filter.unitId);
